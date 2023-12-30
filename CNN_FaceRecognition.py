@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input
 from tensorflow.keras.preprocessing import image
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 
 # Function to preprocess image for MobileNetV2
 def preprocess_image(img_path):
@@ -41,17 +42,17 @@ base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224
 # Load your dataset
 dataset_path = "./dataset"
 
-# Create embeddings for all images in the dataset
+# Create embeddings for all images in the reference path only
 embeddings = []
 labels = []
 
 for label, personality in enumerate(sorted(os.listdir(dataset_path))):
-    for img_type in ["reference", "test"]:
-        for image_file in os.listdir(os.path.join(dataset_path, personality, img_type)):
-            image_path = os.path.join(dataset_path, personality, img_type, image_file)
-            face_embedding = extract_features(image_path)
-            embeddings.append(face_embedding.flatten())  # Flatten the features
-            labels.append(label)
+    reference_path = os.path.join(dataset_path, personality, "reference")
+    for image_file in os.listdir(reference_path):
+        image_path = os.path.join(reference_path, image_file)
+        face_embedding = extract_features(image_path)
+        embeddings.append(face_embedding.flatten())  # Flatten the features
+        labels.append(label)
 
 # Convert lists to NumPy arrays
 embeddings = np.array(embeddings)
@@ -67,10 +68,24 @@ def recognize_face(test_image_path):
     predicted_label = knn_classifier.predict(test_embedding.reshape(1, -1))[0]
     return predicted_label
 
-# Test the face recognition system
-test_image_path = "dataset/person2/test/image9.jpg"
-predicted_label = recognize_face(test_image_path)
+# Test the face recognition system for every image in the "test" path
+predicted_labels = []
+true_labels = []
 
-person_name = get_person_name(predicted_label)
-print("Predicted Person:", person_name)
+for label, personality in enumerate(sorted(os.listdir(dataset_path))):
+    test_path = os.path.join(dataset_path, personality, "test")
+    for image_file in os.listdir(test_path):
+        test_image_path = os.path.join(test_path, image_file)
+        predicted_label = recognize_face(test_image_path)
 
+        person_name = get_person_name(predicted_label)
+        print("Input Image:", test_image_path)
+        print("Predicted Person:", person_name)
+        print()
+
+        true_labels.append(label)
+        predicted_labels.append(predicted_label)
+
+# Compute accuracy
+accuracy = accuracy_score(true_labels, predicted_labels)
+print("Accuracy:", accuracy)
